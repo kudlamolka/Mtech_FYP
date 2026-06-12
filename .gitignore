@@ -1,0 +1,14 @@
+# Ignore a specific data folder entirely
+data/
+datasets/
+
+# Ignore specific large file extensions anywhere in the project
+*.csv
+*.xlsx
+*.parquet
+*.json
+*.pickle
+*.pkl
+
+# Ignore a specific file
+my_large_raw_data.db
