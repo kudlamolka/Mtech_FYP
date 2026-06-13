@@ -13,6 +13,9 @@ Recall (What % of anomalies did it catch?): 2.17%
 
 High-frequency variations are often structural noise. Added return_5m and price_dev_pct_60. This allows Isolation Forest to isolate structural gaps (sudden spikes against a 1-hour average benchmark) from minor minute-to-minute fluctuations.
 
+price_dev_pct_60 = (close-SMA(close 60))/SMA(close 60)
+return_5m =    (close_t - close_(t-5))/(close_(t-5))
+
 Divided-by-Zero Protection: If a stock halts or trades flat for 60 minutes, rolling_vol_std drops to 0, which makes volume_zscore output infinity (inf) or NaN. Added standard deviation fallbacks to preserve feature cleanliness.
 
 
@@ -29,3 +32,5 @@ Precision (When it flags, how right is it?): 0.66%
 Recall (What % of anomalies did it catch?): 18.24%
 ===================================================
 
+Recall jumped from 2.17% to 18.24% (catching 345 anomalies instead of 41), and True Positives multiplied by nearly 8.5x.
+But model is still flagging 50k good records as bad records.
