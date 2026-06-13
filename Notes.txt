@@ -34,3 +34,22 @@ Recall (What % of anomalies did it catch?): 18.24%
 
 Recall jumped from 2.17% to 18.24% (catching 345 anomalies instead of 41), and True Positives multiplied by nearly 8.5x.
 But model is still flagging 50k good records as bad records.
+
+Decreased the contamination_rate to 0.0005. So, automatically, the need to check for anamolies is reduced.
+Hence, improving the result.
+
+================ VALIDATION REPORT ================
+Total Anomalies Injected (Ground Truth): 1891
+Total Anomalies Flagged by Model      : 5228
+---------------------------------------------------
+True Positives (Successfully Caught)  : 1128
+False Positives (False Alarms)        : 4100
+False Negatives (Missed Anomalies)    : 763
+---------------------------------------------------
+Precision (When it flags, how right is it?): 21.58%
+Recall (What % of anomalies did it catch?): 59.65%
+===================================================
+
+================ PERFORMANCE TIMING ================
+Total Execution Time       : 14m 46.5s
+====================================================
