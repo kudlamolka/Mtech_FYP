@@ -53,3 +53,28 @@ Recall (What % of anomalies did it catch?): 59.65%
 ================ PERFORMANCE TIMING ================
 Total Execution Time       : 14m 46.5s
 ====================================================
+
+
+
+Train the forest with contamination='auto' to get raw score distribution
+Extract continuous anomaly scores. Score_samples returns negative values; lower/more negative means MORE anomalous.
+Align with Tracker to find the mathematically optimal threshold
+Convert raw anomaly scores to positive outlier scores for the ROC calculation. 
+Since lower score_samples means more anomalous, we invert it. Use ROC curve to find the point that maximizes Geometric Mean (balance of TPR and 1-FPR)
+
+
+================ VALIDATION REPORT ================
+Total Anomalies Injected (Ground Truth): 1891
+Total Anomalies Flagged by Model      : 830318
+---------------------------------------------------
+True Positives (Successfully Caught)  : 1481
+False Positives (False Alarms)        : 828837
+False Negatives (Missed Anomalies)    : 410
+---------------------------------------------------
+Precision (When it flags, how right is it?): 0.18%
+Recall (What % of anomalies did it catch?): 78.32%
+===================================================
+
+================ PERFORMANCE TIMING ================
+Total Execution Time       : 11m 42.0s
+====================================================

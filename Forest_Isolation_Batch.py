@@ -3,6 +3,7 @@ import numpy as np
 import time
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_curve
 
 def load_and_clean_data(file_path):
     print(f"Loading dataset from {file_path}...")
@@ -48,64 +49,79 @@ def compute_market_and_timeline_features(df):
     df = df.bfill().ffill().fillna(0)
     return df
 
-def process_global_anomalies_tuned(df, target_contamination=0.0005):
-    """
-    Fits a global Isolation Forest forcing an explicit, tight target threshold
-    to instantly crush false positives.
-    """
+def process_anomalies_with_optimal_threshold(df, tracker_path):
     feature_cols = [
         'return_1m', 'return_5m', 'hl_spread_pct', 
         'volume_zscore', 'price_dev_pct',
         'return_vs_market', 'volatility_vs_market'
     ]
     
-    print(f"Scaling data and fitting Global iForest with strict contamination: {target_contamination}...")
+    print("Scaling features...")
     X = df[feature_cols].values
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Using explicit parameter target mapping
+    print("Fitting Global Isolation Forest...")
     iforest = IsolationForest(
-        n_estimators=150,                 # Increased trees for highly accurate split definition
-        contamination=target_contamination, # Forces the model to only look at the extreme 0.05% tail
-        max_samples=0.4,                  # Increased sample size to capture finer structural anomalies
+        n_estimators=100,
+        contamination='auto',
+        max_samples=0.25,
         random_state=42,
         n_jobs=-1
     )
+    iforest.fit(X_scaled)
     
-    preds = iforest.fit_predict(X_scaled)
-    df['is_anomaly'] = np.where(preds == -1, 1, 0)
-    
-    print(f"Diagnostics -> Explicitly Flagged Count: {df['is_anomaly'].sum()} rows.")
-    return df
-
-def validate_against_tracker(results_df, tracker_path):
-    print("\n--- Starting Validation Pipeline ---")
-    if not pd.io.common.file_exists(tracker_path):
-        print(f"Error: Tracker file not found at {tracker_path}. Skipping validation.")
-        return
-
+    print("Extracting continuous anomaly scores...")
+    df['raw_anomaly_score'] = iforest.score_samples(X_scaled)
+    print("Aligning with tracker data for threshold optimization...")
     tracker_df = pd.read_csv(tracker_path)
     tracker_df['date'] = pd.to_datetime(tracker_df['date'], errors='coerce')
-    tracker_df = tracker_df.dropna(subset=['date'])
     tracker_df['actual_anomaly'] = 1
-
-    results_df['date'] = pd.to_datetime(results_df['date'])
     
-    merged = pd.merge(
-        results_df, 
-        tracker_df[['Stock', 'date', 'actual_anomaly']], 
-        on=['Stock', 'date'], 
-        how='left'
-    )
+    df['date'] = pd.to_datetime(df['date'])
+    merged = pd.merge(df, tracker_df[['Stock', 'date', 'actual_anomaly']], on=['Stock', 'date'], how='left')
     merged['actual_anomaly'] = merged['actual_anomaly'].fillna(0).astype(int)
+    
+    outlier_scores = -merged['raw_anomaly_score']
+    y_true = merged['actual_anomaly'].values
+    
+    fpr, tpr, thresholds = roc_curve(y_true, outlier_scores)
+    gmeans = np.sqrt(tpr * (1 - fpr))
+    ix = np.argmax(gmeans)
+    
+    optimal_score_threshold = thresholds[ix]
+    print(f"\n>>> Optimal Outlier Score Threshold Discovered: {optimal_score_threshold:.4f} <<<")
+    
+    merged['is_anomaly'] = np.where(outlier_scores >= optimal_score_threshold, 1, 0)
+    
+    return merged
 
-    total_injected = tracker_df.shape[0]
-    total_predicted = merged['is_anomaly'].sum()
+def validate_against_tracker(results_df, tracker_path):
+    """
+    Validates model predictions using the actual_anomaly column already processed
+    during the optimization stage.
+    """
+    print("\n--- Starting Validation Pipeline ---")
+    
+    # Check if the column exists to prevent downstream crashes
+    if 'actual_anomaly' not in results_df.columns:
+        print("Error: 'actual_anomaly' column missing from results. Re-running merge baseline...")
+        if not pd.io.common.file_exists(tracker_path):
+            print(f"Error: Tracker file not found at {tracker_path}. Skipping validation.")
+            return
+        tracker_df = pd.read_csv(tracker_path)
+        tracker_df['date'] = pd.to_datetime(tracker_df['date'], errors='coerce')
+        tracker_df['actual_anomaly'] = 1
+        results_df = pd.merge(results_df, tracker_df[['Stock', 'date', 'actual_anomaly']], on=['Stock', 'date'], how='left')
+        results_df['actual_anomaly'] = results_df['actual_anomaly'].fillna(0).astype(int)
 
-    tp = merged[(merged['is_anomaly'] == 1) & (merged['actual_anomaly'] == 1)].shape[0]
-    fp = merged[(merged['is_anomaly'] == 1) & (merged['actual_anomaly'] == 0)].shape[0]
-    fn = merged[(merged['is_anomaly'] == 0) & (merged['actual_anomaly'] == 1)].shape[0]
+    # Calculate metrics cleanly off the single optimized dataframe
+    total_injected = results_df['actual_anomaly'].sum()
+    total_predicted = results_df['is_anomaly'].sum()
+
+    tp = results_df[(results_df['is_anomaly'] == 1) & (results_df['actual_anomaly'] == 1)].shape[0]
+    fp = results_df[(results_df['is_anomaly'] == 1) & (results_df['actual_anomaly'] == 0)].shape[0]
+    fn = results_df[(results_df['is_anomaly'] == 0) & (results_df['actual_anomaly'] == 1)].shape[0]
 
     precision = tp / total_predicted if total_predicted > 0 else 0
     recall = tp / total_injected if total_injected > 0 else 0
@@ -133,16 +149,16 @@ if __name__ == "__main__":
     # 1. Load data safely
     df_raw = load_and_clean_data(input_file)
     
-    # 2. Extract multi-timeframe & market cross-sectional features
+    # 2. Extract features
     df_featured = compute_market_and_timeline_features(df_raw)
     
-    # 3. FORCE strict hyper-targeted contamination limit (0.05%)
-    # This will explicitly clamp down on the 52,334 flag threshold wall.
-    df_results = process_global_anomalies_tuned(df_featured, target_contamination=0.0005)
+    # 3. Model anomalies using customized ROC thresholds
+    df_results = process_anomalies_with_optimal_threshold(df_featured, tracker_file)
 
     print(f"Saving final results to {output_file}...")
     df_results.to_csv(output_file, index=False)
     
+    # 4. Run validation check
     validate_against_tracker(df_results, tracker_file)
     
     execution_time = time.time() - start_time
