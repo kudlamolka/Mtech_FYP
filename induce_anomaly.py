@@ -1,19 +1,15 @@
 import pandas as pd
 import numpy as np
 import random
-import os
 
-# Define file paths
-input_file = 'data/all_stocks_historic.csv'
-output_data_file = 'data/all_stocks_with_anomalies.csv'
-anomaly_track_file = 'data/anomaly_tracker.csv'
+from utils.constants import OHLCV_COLUMNS, INPUT_DATA_FILE, ANOMALY_DATA_FILE, TRACKER_FILE
+from utils.data_io import sort_stock_data
 
 def induce_anomalies(input_path, output_path, tracker_path):
     print("Loading data...")
     df = pd.read_csv(input_path)
     
-    # Sort by primary keys for consistency
-    df = df.sort_values(by=['Stock', 'date']).reset_index(drop=True)
+    df = sort_stock_data(df)
     
     total_rows = len(df)
     anomaly_indices = []
@@ -29,13 +25,12 @@ def induce_anomalies(input_path, output_path, tracker_path):
     print(f"Total rows: {total_rows}")
     print(f"Inducing {len(anomaly_indices)} anomalies...")
 
-    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     tracker_records = []
     
     for idx in anomaly_indices:
         stock = df.loc[idx, 'Stock']
         date = df.loc[idx, 'date']
-        target_col = random.choice(numeric_cols)
+        target_col = random.choice(OHLCV_COLUMNS)
         original_value = df.loc[idx, target_col]
 
         corruption_type = random.choice(['spike', 'drop'])
@@ -47,7 +42,6 @@ def induce_anomalies(input_path, output_path, tracker_path):
         if np.issubdtype(df[target_col].dtype, np.integer):
             modified_value = int(round(modified_value))
         
-        # Update the dataframe
         df.loc[idx, target_col] = modified_value
         
         tracker_records.append({
@@ -67,4 +61,4 @@ def induce_anomalies(input_path, output_path, tracker_path):
     print(f"Saved anomaly tracker log to: {tracker_path}")
 
 if __name__ == "__main__":
-    induce_anomalies(input_file, output_data_file, anomaly_track_file)
+    induce_anomalies(INPUT_DATA_FILE, ANOMALY_DATA_FILE, TRACKER_FILE)

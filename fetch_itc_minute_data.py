@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Script to fetch minute-by-minute price data for ITC from Zerodha Kite Connect API
-Date range: 17th May 2026 12:00AM IST to 23rd May 2026 11:59PM IST
+Script to fetch minute-by-minute price data for stocks from Zerodha Kite Connect API
+Date range: 31st March 2026 to 31st May 2026
 """
 
 import pandas as pd
 from kiteconnect import KiteConnect
 import datetime
-import time
+
+from utils.constants import OHLCV_COLUMNS, DATE_COL
 
 filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_Log.txt"
 file = open(f'logs/{filename}', "w",encoding="utf-8")
@@ -16,12 +17,9 @@ file = open(f'logs/{filename}', "w",encoding="utf-8")
 API_KEY = "bjc63t810yvbajfq"
 API_SECRET = "u9dbg8j6bc60egbbfgtdj5s5tq5g0r8j"
 
-# ITC Instrument Token (NSE) - You may need to verify this
-# ITC NSE instrument token is typically 438881
-
 EXCHANGE = "NSE"
-#TRADING_SYMBOL_LIST = []
 TRADING_SYMBOL_LIST = ["ABB","ADANIENSOL","ADANIENT","ADANIGREEN","ADANIPORTS","ADANIPOWER","AMBUJACEM","APOLLOHOSP","ASIANPAINT","DMART","AXISBANK","BAJAJ-AUTO","BAJFINANCE","BAJAJFINSV","BAJAJHLDNG","BANKBARODA","BEL","BPCL","BHARTIARTL","BOSCHLTD","BRITANNIA","CGPOWER","CANBK","CHOLAFIN","CIPLA","COALINDIA","CUMMINSIND","DLF","DIVISLAB","DRREDDY","EICHERMOT","ETERNAL","GAIL","GODREJCP","GRASIM","HCLTECH","HDFCAMC","HDFCBANK","HDFCLIFE","HINDALCO","HAL","HINDUNILVR","HINDZINC","HYUNDAI","ICICIBANK","ITC","INDHOTEL","IOC","IRFC","INFY","INDIGO","JSWSTEEL","JINDALSTEL","JIOFIN","KOTAKBANK","LTM","LT","LODHA","M&M","MARUTI","MAXHEALTH","MAZDOCK","MUTHOOTFIN","NTPC","NESTLEIND","ONGC","PIDILITIND","PFC","POWERGRID","PNB","RECLTD","RELIANCE","SBILIFE","MOTHERSON","SHREECEM","SHRIRAMFIN","ENRIN","SIEMENS","SOLARINDS","SBIN","SUNPHARMA","TVSMOTOR","TATACAP","TCS","TATACONSUM","TMCV","TMPV","TATAPOWER","TATASTEEL","TECHM","TITAN","TORNTPHARM","TRENT","ULTRACEMCO","UNIONBANK","UNITDSPR","VBL","VEDL","WIPRO","ZYDUSLIFE"]
+
 # Date range
 START_DATE = "2026-03-31 00:00:00"
 END_DATE = "2026-05-31 00:00:00"
@@ -111,7 +109,7 @@ def main():
             continue
         
         
-        while current_date < end_dt
+        while current_date < end_dt:
             day_end = current_date + datetime.timedelta(days=1)
             if day_end > end_dt:
                 day_end = end_dt
@@ -143,15 +141,15 @@ def main():
         
         if all_data:
             df = pd.DataFrame(all_data)
-            df.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
-            df['date'] = pd.to_datetime(df['date'])
+            df.columns = [DATE_COL] + OHLCV_COLUMNS
+            df[DATE_COL] = pd.to_datetime(df[DATE_COL])
             
-            df = df.sort_values('date')
+            df = df.sort_values(DATE_COL)
             output_file = f"{trading_symbol}_{START_DATE.replace(' ', '_').replace(':', '')}_to_{END_DATE.replace(' ', '_').replace(':', '')}.csv"
             df.to_csv(f"results/{output_file}", index=False)
             file.write(f"\nData saved to: {output_file}")
             file.write("\nData Summary:")
-            file.write(f"  Date range: {df['date'].min()} to {df['date'].max()}")
+            file.write(f"  Date range: {df[DATE_COL].min()} to {df[DATE_COL].max()}")
             file.write(f"  Total records: {len(df)}")
             file.write(f"  Price range: ₹{df['low'].min():.2f} - ₹{df['high'].max():.2f}")
             file.write(f"  Total volume: {df['volume'].sum():,}")
@@ -163,7 +161,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-        print(f"job Ended at {datetime.datetime.strptime(START_DATE, "%Y-%m-%d %H:%M:%S")}")
+        print(f"job Ended at {datetime.datetime.strptime(START_DATE, '%Y-%m-%d %H:%M:%S')}")
     finally:
         file.close()
-
