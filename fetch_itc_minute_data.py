@@ -23,8 +23,8 @@ EXCHANGE = "NSE"
 #TRADING_SYMBOL_LIST = []
 TRADING_SYMBOL_LIST = ["ABB","ADANIENSOL","ADANIENT","ADANIGREEN","ADANIPORTS","ADANIPOWER","AMBUJACEM","APOLLOHOSP","ASIANPAINT","DMART","AXISBANK","BAJAJ-AUTO","BAJFINANCE","BAJAJFINSV","BAJAJHLDNG","BANKBARODA","BEL","BPCL","BHARTIARTL","BOSCHLTD","BRITANNIA","CGPOWER","CANBK","CHOLAFIN","CIPLA","COALINDIA","CUMMINSIND","DLF","DIVISLAB","DRREDDY","EICHERMOT","ETERNAL","GAIL","GODREJCP","GRASIM","HCLTECH","HDFCAMC","HDFCBANK","HDFCLIFE","HINDALCO","HAL","HINDUNILVR","HINDZINC","HYUNDAI","ICICIBANK","ITC","INDHOTEL","IOC","IRFC","INFY","INDIGO","JSWSTEEL","JINDALSTEL","JIOFIN","KOTAKBANK","LTM","LT","LODHA","M&M","MARUTI","MAXHEALTH","MAZDOCK","MUTHOOTFIN","NTPC","NESTLEIND","ONGC","PIDILITIND","PFC","POWERGRID","PNB","RECLTD","RELIANCE","SBILIFE","MOTHERSON","SHREECEM","SHRIRAMFIN","ENRIN","SIEMENS","SOLARINDS","SBIN","SUNPHARMA","TVSMOTOR","TATACAP","TCS","TATACONSUM","TMCV","TMPV","TATAPOWER","TATASTEEL","TECHM","TITAN","TORNTPHARM","TRENT","ULTRACEMCO","UNIONBANK","UNITDSPR","VBL","VEDL","WIPRO","ZYDUSLIFE"]
 # Date range
-START_DATE = "2026-03-31 00:00:00"
-END_DATE = "2026-05-31 00:00:00"
+START_DATE = "2026-05-31 00:00:00"
+END_DATE = "2026-06-15 00:00:00"
 
 def get_access_token(change=False):
     """
@@ -111,7 +111,7 @@ def main():
             continue
         
         
-        while current_date < end_dt
+        while current_date < end_dt:
             day_end = current_date + datetime.timedelta(days=1)
             if day_end > end_dt:
                 day_end = end_dt
@@ -148,7 +148,7 @@ def main():
             
             df = df.sort_values('date')
             output_file = f"{trading_symbol}_{START_DATE.replace(' ', '_').replace(':', '')}_to_{END_DATE.replace(' ', '_').replace(':', '')}.csv"
-            df.to_csv(f"results/{output_file}", index=False)
+            df.to_csv(f"data/streaming/{output_file}", index=False)
             file.write(f"\nData saved to: {output_file}")
             file.write("\nData Summary:")
             file.write(f"  Date range: {df['date'].min()} to {df['date'].max()}")

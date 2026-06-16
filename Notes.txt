@@ -11,7 +11,8 @@ Recall (What % of anomalies did it catch?): 2.17%
 ===================================================
 
 
-High-frequency variations are often structural noise. Added return_5m and price_dev_pct_60. This allows Isolation Forest to isolate structural gaps (sudden spikes against a 1-hour average benchmark) from minor minute-to-minute fluctuations.
+High-frequency variations are often structural noise. Added return_5m and price_dev_pct_60.
+ This allows Isolation Forest to isolate structural gaps (sudden spikes against a 1-hour average benchmark) from minor minute-to-minute fluctuations.
 
 price_dev_pct_60 = (close-SMA(close 60))/SMA(close 60)
 return_5m =    (close_t - close_(t-5))/(close_(t-5))
