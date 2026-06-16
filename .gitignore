@@ -12,3 +12,21 @@ datasets/
 
 # Ignore a specific file
 my_large_raw_data.db
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment and secrets
+.env
+*.env.local
+
+# Logs
+logs/
+
+# IDE
+.idea/
+.vscode/
+__pycache__/
+*.pyc
