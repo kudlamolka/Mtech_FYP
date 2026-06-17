@@ -176,7 +176,7 @@ def start_consumer(host='localhost', port=9999):
                             **features
                         }
                         anomaly_log.append(log_entry)
-                        print(f"🚨 ANOMALY: {stock} | {timestamp} | Price: ₹{close:.2f} | Score: {outlier_score:.4f}")
+                        print(f"ANOMALY: {stock} | {timestamp} | Price: ₹{close:.2f} | Score: {outlier_score:.4f}")
                 
                 rows_processed += 1
                 if rows_processed % 1000 == 0:
