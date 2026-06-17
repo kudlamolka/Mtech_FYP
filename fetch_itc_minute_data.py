@@ -4,13 +4,24 @@ Script to fetch minute-by-minute price data for ITC from Zerodha Kite Connect AP
 Date range: 17th May 2026 12:00AM IST to 23rd May 2026 11:59PM IST
 """
 
+import logging
+import os
+import sys
+
 import pandas as pd
 from kiteconnect import KiteConnect
 import datetime
 import time
 
-filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_Log.txt"
-file = open(f'logs/{filename}', "w",encoding="utf-8")
+logger = logging.getLogger(__name__)
+
+
+def _open_log_file():
+    """Open a timestamped log file, creating the logs/ directory if needed."""
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_Log.txt"
+    return open(os.path.join(log_dir, filename), "w", encoding="utf-8")
 
 # Configuration - Replace with your actual credentials
 API_KEY = "bjc63t810yvbajfq"
@@ -42,11 +53,14 @@ def get_access_token(change=False):
     try:
         data = kite.generate_session(request_token=request_token, api_secret=API_SECRET)
         access_token = data["access_token"]
-        print(f"Access token generated: {access_token}")
+        print(f"Access token generated successfully.")
         return access_token
+    except KeyError:
+        raise RuntimeError(
+            "Unexpected session response: 'access_token' key missing from API response."
+        )
     except Exception as e:
-        print(f"Error generating session: {e}")
-        return None
+        raise RuntimeError(f"Failed to generate Kite session: {e}") from e
 
 def get_instrument_token(trading_symbol):
     """
@@ -57,12 +71,14 @@ def get_instrument_token(trading_symbol):
         instruments = kite.instruments()
         for instrument in instruments:
             if instrument['tradingsymbol'] == trading_symbol and instrument['exchange'] == EXCHANGE and instrument['instrument_type'] == 'EQ':
-                print("==== Instrument Token for " + trading_symbol + " is " + str(instrument['instrument_token']))
+                logger.info("Instrument token for %s: %s", trading_symbol, instrument['instrument_token'])
                 return instrument['instrument_token']
+        logger.warning("No instrument found for symbol=%s exchange=%s", trading_symbol, EXCHANGE)
         return None
     except Exception as e:
-        print(f"Error getting instrument token: {e}")
-        return None
+        raise RuntimeError(
+            f"Failed to fetch instrument token for {trading_symbol}: {e}"
+        ) from e
 
 def fetch_historical_data(kite, instrument_token, from_date, to_date, interval="minute"):
     """
@@ -79,14 +95,14 @@ def fetch_historical_data(kite, instrument_token, from_date, to_date, interval="
         )
         return data
     except Exception as e:
-        print(f"Error fetching historical data: {e}")
-        return None
+        logger.error(
+            "Error fetching historical data for token %s (%s -> %s): %s",
+            instrument_token, from_date, to_date, e,
+        )
+        raise
 
-def main():
+def main(file):
     access_token = get_access_token()
-    if not access_token:
-        print("Failed to get access token. Exiting.")
-        return
     
     kite = KiteConnect(api_key=API_KEY, access_token=access_token)
     
@@ -107,9 +123,8 @@ def main():
         current_date = start_dt
         instrument_token = get_instrument_token(trading_symbol)
         if not instrument_token:
-            print(f"Error: Could not get instrument token for {trading_symbol}")
+            logger.warning("Skipping %s: instrument token not found.", trading_symbol)
             continue
-        
         
         while current_date < end_dt:
             day_end = current_date + datetime.timedelta(days=1)
@@ -132,8 +147,6 @@ def main():
             
             if data:
                 all_data.extend(data)
-            else:
-                file.write(f"  ✗ Failed to fetch data for this period: {from_str} to {to_str}\n")
             current_date = day_end
             
 
@@ -142,28 +155,47 @@ def main():
         print(f"Total records fetched: {len(all_data)}")
         
         if all_data:
+            expected_cols = ['date', 'open', 'high', 'low', 'close', 'volume']
             df = pd.DataFrame(all_data)
-            df.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+            if len(df.columns) != len(expected_cols):
+                raise ValueError(
+                    f"Expected {len(expected_cols)} columns from API for {trading_symbol}, "
+                    f"got {len(df.columns)}: {list(df.columns)}"
+                )
+            df.columns = expected_cols
             df['date'] = pd.to_datetime(df['date'])
             
             df = df.sort_values('date')
             output_file = f"{trading_symbol}_{START_DATE.replace(' ', '_').replace(':', '')}_to_{END_DATE.replace(' ', '_').replace(':', '')}.csv"
-            df.to_csv(f"data/streaming/{output_file}", index=False)
+            output_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "data", "streaming", output_file
+            )
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            df.to_csv(output_path, index=False)
             file.write(f"\nData saved to: {output_file}")
             file.write("\nData Summary:")
             file.write(f"  Date range: {df['date'].min()} to {df['date'].max()}")
             file.write(f"  Total records: {len(df)}")
             file.write(f"  Price range: ₹{df['low'].min():.2f} - ₹{df['high'].max():.2f}")
             file.write(f"  Total volume: {df['volume'].sum():,}")
-            
 
         else:
-            file.write("No data fetched.")
+            logger.warning("No data fetched for %s.", trading_symbol)
+            file.write(f"\nNo data fetched for {trading_symbol}.")
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    file = _open_log_file()
     try:
-        main()
-        print(f"job Ended at {datetime.datetime.strptime(START_DATE, "%Y-%m-%d %H:%M:%S")}")
+        main(file)
+        end_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"Job ended at {end_ts}")
+    except Exception:
+        logger.exception("Fatal error during data fetch")
+        sys.exit(1)
     finally:
         file.close()
 

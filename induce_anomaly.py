@@ -1,18 +1,35 @@
+import logging
+import os
+import sys
+
 import pandas as pd
 import numpy as np
 import random
-import os
+
+logger = logging.getLogger(__name__)
 
 # Define file paths
 input_file = 'data/all_stocks_historic.csv'
 output_data_file = 'data/all_stocks_with_anomalies.csv'
 anomaly_track_file = 'data/anomaly_tracker.csv'
 
+REQUIRED_COLS = ['Stock', 'date', 'open', 'high', 'low', 'close', 'volume']
+
+
 def induce_anomalies(input_path, output_path, tracker_path):
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(f"Input data file not found: {input_path}")
+
     print("Loading data...")
     df = pd.read_csv(input_path)
-    
-    # Sort by primary keys for consistency
+
+    if df.empty:
+        raise ValueError(f"Input file is empty: {input_path}")
+
+    missing = [c for c in REQUIRED_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns in {input_path}: {missing}")
+
     df = df.sort_values(by=['Stock', 'date']).reset_index(drop=True)
     
     total_rows = len(df)
@@ -59,12 +76,26 @@ def induce_anomalies(input_path, output_path, tracker_path):
             'Anomalous_Value': modified_value
         })
         
+    for path in (output_path, tracker_path):
+        out_dir = os.path.dirname(path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+
     df.to_csv(output_path, index=False)
     print(f"Saved anomalous dataset to: {output_path}")
-    
+
     tracker_df = pd.DataFrame(tracker_records)
     tracker_df.to_csv(tracker_path, index=False)
     print(f"Saved anomaly tracker log to: {tracker_path}")
 
+
 if __name__ == "__main__":
-    induce_anomalies(input_file, output_data_file, anomaly_track_file)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    try:
+        induce_anomalies(input_file, output_data_file, anomaly_track_file)
+    except Exception:
+        logger.exception("induce_anomalies failed")
+        sys.exit(1)

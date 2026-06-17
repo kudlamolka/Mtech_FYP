@@ -1,3 +1,7 @@
+import logging
+import os
+import sys
+
 import pandas as pd
 import numpy as np
 import time
@@ -5,11 +9,28 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_curve
 
+logger = logging.getLogger(__name__)
+
+REQUIRED_PRICE_COLS = ['open', 'high', 'low', 'close', 'volume']
+
 def load_and_clean_data(file_path):
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Input data file not found: {file_path}")
+
     print(f"Loading dataset from {file_path}...")
     df = pd.read_csv(file_path)
-    
+
+    if df.empty:
+        raise ValueError(f"Input file is empty: {file_path}")
+
+    missing = [c for c in ['date', 'Stock'] + REQUIRED_PRICE_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns in {file_path}: {missing}")
+
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    dropped = df['date'].isna().sum()
+    if dropped:
+        logger.warning("Dropped %d rows with unparseable dates.", dropped)
     df = df.dropna(subset=['date'])
     
     start_date = '2025-04-01'
@@ -74,7 +95,11 @@ def process_anomalies_with_optimal_threshold(df, tracker_path):
     print("Extracting continuous anomaly scores...")
     df['raw_anomaly_score'] = iforest.score_samples(X_scaled)
     print("Aligning with tracker data for threshold optimization...")
+    if not os.path.isfile(tracker_path):
+        raise FileNotFoundError(f"Tracker file not found: {tracker_path}")
     tracker_df = pd.read_csv(tracker_path)
+    if tracker_df.empty:
+        raise ValueError(f"Tracker file is empty: {tracker_path}")
     tracker_df['date'] = pd.to_datetime(tracker_df['date'], errors='coerce')
     tracker_df['actual_anomaly'] = 1
     
@@ -85,6 +110,12 @@ def process_anomalies_with_optimal_threshold(df, tracker_path):
     outlier_scores = -merged['raw_anomaly_score']
     y_true = merged['actual_anomaly'].values
     
+    if len(np.unique(y_true)) < 2:
+        raise ValueError(
+            "Cannot compute ROC curve: ground truth labels contain only one class. "
+            "Ensure the tracker file has matching anomaly entries."
+        )
+
     fpr, tpr, thresholds = roc_curve(y_true, outlier_scores)
     gmeans = np.sqrt(tpr * (1 - fpr))
     ix = np.argmax(gmeans)
@@ -103,12 +134,12 @@ def validate_against_tracker(results_df, tracker_path):
     """
     print("\n--- Starting Validation Pipeline ---")
     
-    # Check if the column exists to prevent downstream crashes
     if 'actual_anomaly' not in results_df.columns:
-        print("Error: 'actual_anomaly' column missing from results. Re-running merge baseline...")
-        if not pd.io.common.file_exists(tracker_path):
-            print(f"Error: Tracker file not found at {tracker_path}. Skipping validation.")
-            return
+        logger.warning("'actual_anomaly' column missing from results. Re-running merge with tracker.")
+        if not os.path.isfile(tracker_path):
+            raise FileNotFoundError(
+                f"Tracker file not found at {tracker_path}; cannot validate predictions."
+            )
         tracker_df = pd.read_csv(tracker_path)
         tracker_df['date'] = pd.to_datetime(tracker_df['date'], errors='coerce')
         tracker_df['actual_anomaly'] = 1
@@ -140,27 +171,32 @@ def validate_against_tracker(results_df, tracker_path):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
     start_time = time.time()
-    
+
     input_file = "data/all_stocks_with_anomalies.csv"
     tracker_file = "data/anomaly_tracker.csv"
     output_file = "minute_stock_anomalies_detected.csv"
-    
-    # 1. Load data safely
-    df_raw = load_and_clean_data(input_file)
-    
-    # 2. Extract features
-    df_featured = compute_market_and_timeline_features(df_raw)
-    
-    # 3. Model anomalies using customized ROC thresholds
-    df_results = process_anomalies_with_optimal_threshold(df_featured, tracker_file)
 
-    print(f"Saving final results to {output_file}...")
-    df_results.to_csv(output_file, index=False)
-    
-    # 4. Run validation check
-    validate_against_tracker(df_results, tracker_file)
-    
+    try:
+        df_raw = load_and_clean_data(input_file)
+
+        df_featured = compute_market_and_timeline_features(df_raw)
+
+        df_results = process_anomalies_with_optimal_threshold(df_featured, tracker_file)
+
+        print(f"Saving final results to {output_file}...")
+        df_results.to_csv(output_file, index=False)
+
+        validate_against_tracker(df_results, tracker_file)
+    except Exception:
+        logger.exception("Pipeline failed")
+        sys.exit(1)
+
     execution_time = time.time() - start_time
     print("================ PERFORMANCE TIMING ================")
     print(f"Total Execution Time       : {execution_time // 60:.0f}m {execution_time % 60:.1f}s")
