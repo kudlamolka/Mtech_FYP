@@ -79,3 +79,58 @@ Recall (What % of anomalies did it catch?): 78.32%
 ================ PERFORMANCE TIMING ================
 Total Execution Time       : 11m 42.0s
 ====================================================
+
+
+================ STREAMING IMPLEMENTATION ================
+Date: 2026-06-20
+
+Implemented streaming anomaly detection using producer-consumer socket architecture.
+
+New Files Created:
+1. data_producer.py - Simulates streaming data source
+   This reads the stored CSV row-by-row and sends data via TCP socket (localhost:9999)
+   The delay is configurable between rows to simulate real-time.
+
+2. data_consumer.py - Real-time anomaly detector which
+   Receives data via socket connection and creates features for streaming data.
+   For this StreamingFeatureEngine class is created. It Loads pre-trained model artifacts from batch processing
+
+3. validate_streaming.py - Streaming validation script
+   - Compares streaming results with ground truth tracker and provides the result
+
+Updated Files:
+4. Forest_Isolation_Batch.py is updated to save the models for the use of streaming
+  * isolation_forest.pkl - Trained Isolation Forest model
+  * scaler.pkl - StandardScaler for feature normalization
+  * optimal_threshold.pkl - Optimal anomaly threshold from ROC curve
+These artifacts capture the learned patterns from historical data
+
+
+
+Streaming Architecture:
+Producer (data_producer.py) -> Socket (localhost:9999) - JSON over TCP ->
+Consumer (data_consumer.py) -> StreamingFeatureEngine (rolling buffers per stock) -> 
+Feature computation (real-time) -> Scaler (loaded from models/scaler.pkl) ->
+Isolation Forest (loaded from models/isolation_forest.pkl) ->
+Anomaly score -> Threshold check (loaded from models/optimal_threshold.pkl) -> Alert/Log
+
+================ STREAMING VALIDATION REPORT ================
+Total Anomalies Injected (Ground Truth): 68
+Total Anomalies Detected by Streaming  : 29963
+---------------------------------------------------
+True Positives (Successfully Caught)  : 53
+False Positives (False Alarms)        : 29910
+False Negatives (Missed Anomalies)    : 15
+---------------------------------------------------
+Precision (When it flags, how right is it?): 0.18%
+Recall (What % of anomalies did it catch?): 77.94%
+===================================================
+
+ Streaming performance similar to batch (0.18% precision, 77.94% recall)
+
+Usage:
+1. Train model: python Forest_Isolation_Batch.py
+2. Start producer: python data_producer.py --input data/stearming_data_with_anomalies.csv --delay 0.01
+3. Start consumer: python data_consumer.py
+4. Validate: python validate_streaming.py --log logs/streaming_anomalies_*.csv --tracker data/streaming_anomaly_tracker.csv
+===================================================

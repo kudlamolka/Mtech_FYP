@@ -2,7 +2,7 @@ import os
 import glob
 import pandas as pd
 
-def combine_csv_files(folder_path, output_file_name="combined_output.csv"):
+def combine_csv_files(folder_path, output_file_name="streaming_data.csv"):
     search_path = os.path.join(folder_path, "*.csv")
     csv_files = glob.glob(search_path)
     if not csv_files:
@@ -35,5 +35,5 @@ def combine_csv_files(folder_path, output_file_name="combined_output.csv"):
 
 
 if __name__ == "__main__":
-    TARGET_FOLDER = "./results" 
+    TARGET_FOLDER = "./data/streaming" 
     combine_csv_files(TARGET_FOLDER)

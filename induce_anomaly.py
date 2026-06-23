@@ -4,9 +4,9 @@ import random
 import os
 
 # Define file paths
-input_file = 'data/all_stocks_historic.csv'
-output_data_file = 'data/all_stocks_with_anomalies.csv'
-anomaly_track_file = 'data/anomaly_tracker.csv'
+input_file = 'data/streaming_data.csv'
+output_data_file = 'data/stearming_data_with_anomalies.csv'
+anomaly_track_file = 'data/streaming_anomaly_tracker.csv'
 
 def induce_anomalies(input_path, output_path, tracker_path):
     print("Loading data...")

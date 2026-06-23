@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import time
+import joblib
+import os
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_curve
@@ -91,6 +93,13 @@ def process_anomalies_with_optimal_threshold(df, tracker_path):
     
     optimal_score_threshold = thresholds[ix]
     print(f"\n>>> Optimal Outlier Score Threshold Discovered: {optimal_score_threshold:.4f} <<<")
+    
+    # Save model artifacts for streaming inference
+    os.makedirs('models', exist_ok=True)
+    joblib.dump(iforest, 'models/isolation_forest.pkl')
+    joblib.dump(scaler, 'models/scaler.pkl')
+    joblib.dump(optimal_score_threshold, 'models/optimal_threshold.pkl')
+    print(f"\n>>> Model artifacts saved to models/ directory <<<")
     
     merged['is_anomaly'] = np.where(outlier_scores >= optimal_score_threshold, 1, 0)
     
