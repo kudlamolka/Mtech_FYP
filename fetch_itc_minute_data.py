@@ -4,17 +4,23 @@ Script to fetch minute-by-minute price data for ITC from Zerodha Kite Connect AP
 Date range: 17th May 2026 12:00AM IST to 23rd May 2026 11:59PM IST
 """
 
+import os
+import re
+
 import pandas as pd
 from kiteconnect import KiteConnect
 import datetime
 import time
 
-filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_Log.txt"
-file = open(f'logs/{filename}', "w",encoding="utf-8")
+# Configuration - Load credentials from environment variables
+API_KEY = os.environ.get("KITE_API_KEY", "")
+API_SECRET = os.environ.get("KITE_API_SECRET", "")
 
-# Configuration - Replace with your actual credentials
-API_KEY = "bjc63t810yvbajfq"
-API_SECRET = "u9dbg8j6bc60egbbfgtdj5s5tq5g0r8j"
+if not API_KEY or not API_SECRET:
+    raise RuntimeError(
+        "Missing Kite Connect credentials. "
+        "Set KITE_API_KEY and KITE_API_SECRET environment variables."
+    )
 
 # ITC Instrument Token (NSE) - You may need to verify this
 # ITC NSE instrument token is typically 438881
@@ -36,13 +42,16 @@ def get_access_token(change=False):
     
     print(f"Please visit this URL to login: {kite.login_url()}")
     print("After login, you will be redirected to a URL with 'request_token' parameter.")
-    request_token = input("Enter the request_token from the redirect URL: ")
+    request_token = input("Enter the request_token from the redirect URL: ").strip()
 
-        
+    if not re.match(r'^[A-Za-z0-9]+$', request_token):
+        print("Error: Invalid request_token format. Must be alphanumeric.")
+        return None
+
     try:
         data = kite.generate_session(request_token=request_token, api_secret=API_SECRET)
         access_token = data["access_token"]
-        print(f"Access token generated: {access_token}")
+        print("Access token generated successfully.")
         return access_token
     except Exception as e:
         print(f"Error generating session: {e}")
@@ -93,7 +102,12 @@ def main():
     start_dt = datetime.datetime.strptime(START_DATE, "%Y-%m-%d %H:%M:%S")
     end_dt = datetime.datetime.strptime(END_DATE, "%Y-%m-%d %H:%M:%S")
 
-    for trading_symbol in TRADING_SYMBOL_LIST:
+    os.makedirs('logs', exist_ok=True)
+    filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_Log.txt"
+    file = open(f'logs/{filename}', "w", encoding="utf-8")
+
+    try:
+      for trading_symbol in TRADING_SYMBOL_LIST:
         print("=" * 60)
         print("ITC Minute Data Fetcher - Zerodha Kite Connect")
         print("=" * 60)
@@ -159,11 +173,10 @@ def main():
 
         else:
             file.write("No data fetched.")
-
-if __name__ == "__main__":
-    try:
-        main()
-        print(f"job Ended at {datetime.datetime.strptime(START_DATE, "%Y-%m-%d %H:%M:%S")}")
     finally:
         file.close()
+
+if __name__ == "__main__":
+    main()
+    print(f"Job ended at {datetime.datetime.now()}")
 
