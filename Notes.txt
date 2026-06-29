@@ -134,3 +134,137 @@ Usage:
 3. Start consumer: python data_consumer.py
 4. Validate: python validate_streaming.py --log logs/streaming_anomalies_*.csv --tracker data/streaming_anomaly_tracker.csv
 ===================================================
+
+================ LOF (Local Outlier Factor) EXPERIMENT ================
+
+Tried Local Outlier Factor (LOF) as an alternative to Isolation Forest.
+LOF measures local density deviation of data points to detect anomalies.
+
+Configuration:
+- n_neighbors: 20
+- contamination: 'auto'
+- Same 7 features as Isolation Forest
+- ROC-based threshold optimization
+
+Results:
+================ VALIDATION REPORT ================
+Total Anomalies Injected (Ground Truth): 1891
+Total Anomalies Flagged by Model      : 3820170
+---------------------------------------------------
+True Positives (Successfully Caught)  : 861
+False Positives (False Alarms)        : 3819309
+False Negatives (Missed Anomalies)    : 1030
+---------------------------------------------------
+Precision (When it flags, how right is it?): 0.02%
+Recall (What % of anomalies did it catch?): 45.53%
+===================================================
+
+================ PERFORMANCE TIMING ================
+Total Execution Time       : 90m 45.8s
+====================================================
+
+Comparison with Isolation Forest (ROC threshold):
+- Isolation Forest: Precision 0.18%, Recall 78.32%, Time 11m 42s
+- LOF: Precision 0.02%, Recall 45.53%, Time 90m 45s
+
+LOF performed worse than Isolation Forest:
+- Much lower precision (0.02% vs 0.18%)
+- Lower recall (45.53% vs 78.32%)
+- Much slower execution time (90m vs 11m)
+- Significantly more false positives (3.8M vs 828K)
+
+Conclusion: Isolation Forest is superior for this use case.
+===================================================
+
+================ SUPERVISED MODEL (Random Forest) EXPERIMENT ================
+
+Tried supervised Random Forest classifier using labeled anomaly data.
+Model was trained on 500K sample subset due to resource constraints.
+
+Configuration:
+- n_estimators: 100
+- max_depth: 15
+- min_samples_split: 10
+- min_samples_leaf: 5
+- class_weight: 'balanced'
+- n_jobs: 1 (single thread)
+- Same 7 features as Isolation Forest
+- Train/test split: 80/20 (stratified)
+
+Results (Test Set - 100K samples, 20 anomalies):
+================ VALIDATION REPORT ================
+Total Anomalies in Test Set: 20
+Total Predicted as Anomalies: 12
+---------------------------------------------------
+True Positives (Successfully Caught)  : 12
+False Positives (False Alarms)        : 0
+False Negatives (Missed Anomalies)    : 8
+True Negatives (Correctly Normal)    : 99980
+---------------------------------------------------
+Precision (When it flags, how right is it?): 100.00%
+Recall (What % of anomalies did it catch?): 60.00%
+F1 Score: 75.00%
+===================================================
+
+================ FEATURE IMPORTANCE ================
+             feature  importance
+       hl_spread_pct    0.313136
+volatility_vs_market    0.300383
+       volume_zscore    0.103654
+       price_dev_pct    0.079261
+           return_5m    0.074332
+           return_1m    0.071340
+    return_vs_market    0.057894
+===================================================
+
+================ PERFORMANCE TIMING ================
+Training Time       : 205.0s (3m 25s)
+Total Execution Time: 15m 32.9s
+====================================================
+
+Comparison with Isolation Forest (ROC threshold):
+- Isolation Forest: Precision 0.18%, Recall 78.32%, Time 11m 42s
+- Random Forest: Precision 100%, Recall 60%, Time 15m 33s
+
+Random Forest advantages:
+- Perfect precision (100% - no false alarms)
+- Good F1 score (75%)
+- hl_spread_pct and volatility_vs_market are most important features
+
+Random Forest disadvantages:
+- Lower recall (60% vs 78%)
+- Requires labeled training data
+- Trained on subset (not full dataset)
+
+Conclusion: Random Forest achieves perfect precision with good recall, making it suitable when false alarms are unacceptable. However, it requires labeled data and has lower recall than Isolation Forest.
+
+================ SUPERVISED STREAMING VALIDATION ================
+Date: 2026-06-29
+
+Tested supervised Random Forest model on streaming data using data_consumer_supervised.py.
+
+Results:
+================ STREAMING VALIDATION REPORT ================
+Total Anomalies Injected (Ground Truth): 68
+Total Anomalies Detected by Streaming  : 45
+---------------------------------------------------
+True Positives (Successfully Caught)  : 45
+False Positives (False Alarms)        : 0
+False Negatives (Missed Anomalies)    : 23
+---------------------------------------------------
+Precision (When it flags, how right is it?): 100.00%
+Recall (What % of anomalies did it catch?): 66.18%
+===================================================
+
+Comparison with Isolation Forest Streaming:
+- Isolation Forest Streaming: Precision 0.18%, Recall 77.94%
+- Random Forest Streaming: Precision 100%, Recall 66.18%
+
+Random Forest streaming maintains perfect precision with slightly lower recall than Isolation Forest, consistent with batch results.
+
+Usage:
+1. Train supervised model: python train_supervised_model.py
+2. Start producer: python data_producer.py --input data/stearming_data_with_anomalies.csv --delay 0.01
+3. Start supervised consumer: python data_consumer_supervised.py
+4. Validate: python validate_streaming.py --log logs/streaming_anomalies_supervised_*.csv --tracker data/streaming_anomaly_tracker.csv
+===================================================
