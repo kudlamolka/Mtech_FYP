@@ -268,3 +268,57 @@ Usage:
 3. Start supervised consumer: python data_consumer_supervised.py
 4. Validate: python validate_streaming.py --log logs/streaming_anomalies_supervised_*.csv --tracker data/streaming_anomaly_tracker.csv
 ===================================================
+
+
+================ SUPERVISED MODEL (FULL DATASET) EXPERIMENT ================
+Date: 2026-07-02
+
+Trained Random Forest on full dataset (~10M records) with optimized parameters for speed.
+
+Configuration:
+- n_estimators: 50 (reduced from 100)
+- max_depth: 10 (reduced from 15)
+- min_samples_split: 50 (increased from 10)
+- min_samples_leaf: 10 (increased from 5)
+- class_weight: 'balanced'
+- n_jobs: 1 (single thread)
+- Same 7 features as Isolation Forest
+- Train/test split: 80/20 (stratified)
+- Full dataset: ~10M records
+
+Results (Test Set - ~2M samples, 378 anomalies):
+================ VALIDATION REPORT ================
+Total Anomalies in Test Set: 378
+Total Predicted as Anomalies: 22582
+---------------------------------------------------
+True Positives (Successfully Caught)  : 272
+False Positives (False Alarms)        : 22310
+False Negatives (Missed Anomalies)    : 106
+True Negatives (Correctly Normal)    : 2068463
+---------------------------------------------------
+Precision (When it flags, how right is it?): 1.20%
+Recall (What % of anomalies did it catch?): 71.96%
+F1 Score: 2.37%
+===================================================
+
+================ FEATURE IMPORTANCE ================
+             feature  importance
+volatility_vs_market    0.322747
+       hl_spread_pct    0.318699
+       volume_zscore    0.094461
+           return_1m    0.079087
+       price_dev_pct    0.075119
+    return_vs_market    0.057528
+           return_5m    0.052359
+===================================================
+
+Comparison with Subset Training (500K samples):
+- Subset: Precision 100%, Recall 60%, F1 75%
+- Full dataset: Precision 1.20%, Recall 71.96%, F1 2.37%
+
+The full dataset training with optimized parameters performed significantly worse:
+- Precision dropped from 100% to 1.20% (massive increase in false alarms)
+- Recall improved from 60% to 71.96%
+- F1 score dropped from 75% to 2.37%
+
+Conclusion: The subset training with original parameters produced much better results. The optimized parameters for full dataset training caused severe overfitting to the normal class, resulting in many false positives. The original subset approach is recommended.

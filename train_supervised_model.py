@@ -88,17 +88,11 @@ def train_supervised_model(df):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Use a subset for faster training (500K samples)
-    subset_size = min(500000, len(X_scaled))
-    indices = np.random.choice(len(X_scaled), subset_size, replace=False)
-    X_subset = X_scaled[indices]
-    y_subset = y[indices]
-    
-    print(f"Using subset of {subset_size} samples for training")
+    print(f"Using full dataset of {len(X_scaled)} samples for training")
     
     # Split data (stratified to maintain anomaly ratio)
     X_train, X_test, y_train, y_test = train_test_split(
-        X_subset, y_subset, test_size=0.2, random_state=42, stratify=y_subset
+        X_scaled, y, test_size=0.2, random_state=42, stratify=y
     )
     
     print(f"Training set: {len(X_train)} records ({y_train.sum()} anomalies)")
@@ -107,13 +101,14 @@ def train_supervised_model(df):
     # Train Random Forest
     print("\nTraining Random Forest Classifier...")
     rf = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=15,
-        min_samples_split=10,
-        min_samples_leaf=5,
+        n_estimators=50,  # Reduced from 100 for speed
+        max_depth=10,  # Reduced from 15 for speed
+        min_samples_split=50,  # Increased from 10 for speed
+        min_samples_leaf=10,  # Increased from 5 for speed
         class_weight='balanced',
         random_state=42,
-        n_jobs=1  # Single thread to avoid resource issues
+        n_jobs=1,  # Single thread to avoid resource issues
+        verbose=2  # Show progress during training
     )
     
     start_time = time.time()
