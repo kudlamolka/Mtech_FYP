@@ -322,3 +322,58 @@ The full dataset training with optimized parameters performed significantly wors
 - F1 score dropped from 75% to 2.37%
 
 Conclusion: The subset training with original parameters produced much better results. The optimized parameters for full dataset training caused severe overfitting to the normal class, resulting in many false positives. The original subset approach is recommended.
+
+================ SUPERVISED MODEL (FULL DATASET - ORIGINAL PARAMS) EXPERIMENT ================
+Date: 2026-07-02
+
+Trained Random Forest on full dataset (~10M records) with original parameters.
+
+Configuration:
+- n_estimators: 100 (original)
+- max_depth: 15 (original)
+- min_samples_split: 10 (original)
+- min_samples_leaf: 5 (original)
+- class_weight: 'balanced'
+- n_jobs: 1 (single thread)
+- Same 7 features as Isolation Forest
+- Train/test split: 80/20 (stratified)
+- Full dataset: ~10M records
+
+Results (Test Set - ~2M samples, 378 anomalies):
+================ VALIDATION REPORT ================
+Total Anomalies in Test Set: 378
+Total Predicted as Anomalies: 3510
+---------------------------------------------------
+True Positives (Successfully Caught)  : 244
+False Positives (False Alarms)        : 3266
+False Negatives (Missed Anomalies)    : 134
+True Negatives (Correctly Normal)    : 2087507
+---------------------------------------------------
+Precision (When it flags, how right is it?): 6.95%
+Recall (What % of anomalies did it catch?): 64.55%
+F1 Score: 12.55%
+===================================================
+
+================ FEATURE IMPORTANCE ================
+             feature  importance
+       hl_spread_pct    0.334547
+volatility_vs_market    0.260486
+       volume_zscore    0.120975
+           return_1m    0.087200
+       price_dev_pct    0.079141
+    return_vs_market    0.059627
+           return_5m    0.058024
+===================================================
+
+Comparison Summary:
+- Subset (500K, original params): Precision 100%, Recall 60%, F1 75%
+- Full dataset (10M, optimized params): Precision 1.20%, Recall 71.96%, F1 2.37%
+- Full dataset (10M, original params): Precision 6.95%, Recall 64.55%, F1 12.55%
+
+The full dataset with original parameters performed better than with optimized parameters, but still significantly worse than the subset training:
+- Precision improved from 1.20% to 6.95% (but still far from 100%)
+- Recall decreased from 71.96% to 64.55%
+- F1 score improved from 2.37% to 12.55% (but still far from 75%)
+
+Conclusion: Despite using the full dataset with original parameters, the subset training still produces superior results. The full dataset training suffers from class imbalance issues even with balanced class weights. The 500K subset approach remains the best configuration for this anomaly detection task.
+===================================================

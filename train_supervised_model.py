@@ -15,7 +15,7 @@ def load_and_clean_data(file_path):
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     df = df.dropna(subset=['date'])
     
-    start_date = '2025-04-01'
+    start_date = '2026-01-01'
     end_date = '2026-05-31'
     df = df[(df['date'] >= start_date) & (df['date'] <= end_date)].copy()
     
@@ -101,10 +101,10 @@ def train_supervised_model(df):
     # Train Random Forest
     print("\nTraining Random Forest Classifier...")
     rf = RandomForestClassifier(
-        n_estimators=50,  # Reduced from 100 for speed
-        max_depth=10,  # Reduced from 15 for speed
-        min_samples_split=50,  # Increased from 10 for speed
-        min_samples_leaf=10,  # Increased from 5 for speed
+        n_estimators=100,  # Original value
+        max_depth=15,  # Original value
+        min_samples_split=10,  # Original value
+        min_samples_leaf=5,  # Original value
         class_weight='balanced',
         random_state=42,
         n_jobs=1,  # Single thread to avoid resource issues
